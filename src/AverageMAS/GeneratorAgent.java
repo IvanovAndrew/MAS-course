@@ -1,9 +1,6 @@
 package AverageMAS;
 
-import AverageMAS.Ontology.Message;
-import jade.content.ContentManager;
 import jade.content.lang.Codec;
-import jade.content.lang.sl.SLCodec;
 import jade.content.onto.OntologyException;
 import jade.core.AID;
 import jade.core.Agent;
@@ -21,15 +18,14 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.StringTokenizer;
 
+import static AverageMAS.Ontology.Message.START;
+
 /**
  * Created by User on 10/16/14.
  */
 public class GeneratorAgent extends Agent {
     private static String filePath = "input.txt";
     private static String separator = " ";
-
-    private ContentManager mManager = (ContentManager) getContentManager();
-    private Codec mCodec = new SLCodec();
 
     private ArrayList<AgentController> mAgents = new ArrayList<AgentController>();
     private AgentContainer allAgents;
@@ -60,7 +56,10 @@ public class GeneratorAgent extends Agent {
                     }
                 }
                 int agentNumber = matrix[agent][agent];
-                AgentController newAgent = createUsualAgent(agent, neighborhoods, agentNumber);
+
+                String neighborName = neighborhoods.isEmpty()? "" : neighborhoods.get(0);
+
+                AgentController newAgent = createUsualAgent(agent, neighborName, agentNumber);
 
                 mAgents.add(newAgent);
                 newAgent.start();
@@ -85,19 +84,15 @@ public class GeneratorAgent extends Agent {
 
     private ACLMessage createMessage(String receiver) throws Codec.CodecException, OntologyException {
         ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-        //msg.setLanguage(mCodec.getName());
-        msg.setContent(Message.START);
-        msg.addReceiver(new AID(receiver, AID.ISGUID));
 
-        /*MessageContent content = new MessageContent();
-        content.setMessage(Message.START);
-        mManager.fillContent(msg, content);*/
+        msg.setContent(START);
+        msg.addReceiver(new AID(receiver, AID.ISGUID));
         return msg;
     }
 
-    private AgentController createUsualAgent(int id, ArrayList<String> neighborhoods, int agentNumber) throws StaleProxyException {
+    private AgentController createUsualAgent(int id, String neighborName, int agentNumber) throws StaleProxyException {
         String agentName = UsualAgent.PREFIX_NAME + id;
-        Object[] array = {agentName, neighborhoods, agentNumber};
+        Object[] array = {agentName, neighborName, agentNumber};
         return allListeners.createNewAgent(agentName, "AverageMAS.UsualAgent", array);
     }
 

@@ -5,9 +5,6 @@ package AverageMAS.Ontology;
  */
 public class Message {
     public final static String START = "START";
-    /*
-    public final static String START = "START";
-    public final static String START = "START";
-    public final static String START = "START";
-    */
+    public final static String STOP = "STOP";
+    public final static String NUMBER = "NUMBER";
 }
