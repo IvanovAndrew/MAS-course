@@ -14,7 +14,8 @@ public class Common {
     public static Codec Codec = new SLCodec();
 
     public static final Random Random = new Random();
-    public static final int NUMBER_UPPER_BOUND = 100;
+    public static final int NUMBER_RANGE = 10;
+    public static final int NUMBER_UPPER_BOUND = 20;
 
     public static int messagesTotal = 0;
 
