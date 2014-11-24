@@ -24,7 +24,7 @@ import static AverageMAS.Ontology.Message.START;
  * Created by User on 10/16/14.
  */
 public class GeneratorAgent extends Agent {
-    private static String filePath = "input_1.txt";//"input_0.txt";
+    private static String filePath = "input_2.txt";//"input_1.txt";//"input_0.txt";
     private static String separator = " ";
 
     private ArrayList<AgentController> mAgents = new ArrayList<AgentController>();
@@ -103,13 +103,68 @@ public class GeneratorAgent extends Agent {
         return allListeners.createNewAgent(CenterAgent.CENTER_NAME, "AverageMAS.CenterAgent", null);
     }
 
+    private void printMatrix(int[][] matrix){
+        int vertexCount = matrix[0].length;
+
+        for (int i = 0; i < vertexCount; i++){
+            for (int j = 0; j < vertexCount; j++){
+                System.out.print(matrix[i][j] + " ");
+            }
+            System.out.println();
+        }
+
+    }
+
     private int[][] analyseMatrix(int[][] matrix){
+
+        System.out.println("ANALYSE MATRIX");
+        printMatrix(matrix);
+
+        System.out.println("AFTER REMOVING CYCLES");
         matrix = removeCycles(matrix);
+        printMatrix(matrix);
+
+        System.out.println("AFTER ADDING NEW EDGES");
         matrix = addNeedEdges(matrix);
+        printMatrix(matrix);
+
         return matrix;
     }
 
+    private void findAvailable(int[][] matrix, int vertex, ArrayList<Integer> set){
+
+        for (int i = 0; i < matrix[vertex].length; i++){
+            if (matrix[vertex][i] < 1 || set.contains(i)){
+                continue;
+            }
+
+            //it's new vertex
+            set.add(i);
+            findAvailable(matrix, i, set);
+        }
+    }
+
     private int[][] removeCycles(int[][] matrix){
+        int vertexCount = matrix[0].length;
+//        Hashtable<Integer, ArrayList<Integer>> dictionary = new Hashtable<Integer, ArrayList<Integer>>();
+
+        for (int i = 0; i < vertexCount; i++){
+
+            ArrayList<Integer> path = new ArrayList<Integer>();
+            findAvailable(matrix, i, path);
+
+
+            if (path.contains(i)){
+                //cycle exists
+                for (int v : path){
+                    if (matrix[v][i] > 0)
+                        matrix[v][i] = 0;
+                }
+            }
+
+//            dictionary.put(i, path);
+        }
+
         return matrix;
     }
 
