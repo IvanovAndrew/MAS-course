@@ -156,8 +156,8 @@ public class UsualAgent extends Agent {
 
     private void startAction(){
         System.out.println(
-                String.format("%1$s: %2$s ", mMyName, "START was received") +
-                        String.format("%1$d: %2$s", knowsAboutMe, "knows about me") +
+                String.format("%1$s: %2$s ", mMyName, "START was received.") +
+                        String.format("%1$d %2$s", knowsAboutMe, "agent(s) know(s) about me. ") +
                         String.format("MY NUMBER: %1$d", myNumber));
         if (neighborName.isEmpty()){
             return;
