@@ -1,6 +1,7 @@
 package AverageMAS;
 
-import AverageMAS.Ontology.AverageOntology;
+import AverageMAS.AverageOntology.AverageOntology;
+import AverageMAS.CyclesOntology.CyclesOntology;
 import jade.content.ContentManager;
 import jade.content.lang.Codec;
 import jade.content.lang.sl.SLCodec;
@@ -19,8 +20,13 @@ public class Common {
 
     public static int messagesTotal = 0;
 
-    public static void registerOntology(ContentManager manager){
+    public static void registerAverageOntology(ContentManager manager){
         manager.registerLanguage(Codec);
         manager.registerOntology(AverageOntology.getInstance());
+    }
+
+    public static void registerCyclesOntology(ContentManager manager){
+        manager.registerLanguage(Codec);
+        manager.registerOntology(CyclesOntology.getInstance());
     }
 }

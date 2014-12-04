@@ -18,14 +18,15 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.StringTokenizer;
 
-import static AverageMAS.Ontology.Message.START;
+import static AverageMAS.Message.REMOVE_CYCLES;
+import static AverageMAS.Message.START;
 
 /**
  * Created by User on 10/16/14.
  */
 public class GeneratorAgent extends Agent {
-    private static String filePath = "input_2.txt";//"input_1.txt";//"input_0.txt";
-    private static String separator = " ";
+    private static final String filePath = "input_2.txt";//"input_1.txt";//"input_0.txt";
+    private static final String separator = " ";
 
     private ArrayList<AgentController> mAgents = new ArrayList<AgentController>();
     private AgentContainer allAgents;
@@ -39,7 +40,6 @@ public class GeneratorAgent extends Agent {
         if (matrix == null)
             return;
 
-        matrix = analyseMatrix(matrix);
         jade.core.Runtime rt = Runtime.instance();
         ProfileImpl p = new ProfileImpl(false);
         allListeners = rt.createAgentContainer(p);
@@ -66,16 +66,12 @@ public class GeneratorAgent extends Agent {
 
                 mAgents.add(newAgent);
                 newAgent.start();
+
+                startRemovingCycles();
             }
 
             AgentController centerAgent = createCenterAgent();
             centerAgent.start();
-
-            for (AgentController agent : mAgents){
-                jade.lang.acl.ACLMessage message = createMessage(agent.getName());
-                send(message);
-            }
-
         }catch (StaleProxyException e) {
             e.printStackTrace();
         } catch (Codec.CodecException e) {
@@ -85,7 +81,29 @@ public class GeneratorAgent extends Agent {
         }
     }
 
-    private ACLMessage createMessage(String receiver) throws Codec.CodecException, OntologyException {
+    private void startRemovingCycles() throws StaleProxyException, Codec.CodecException, OntologyException {
+        for (AgentController agent : mAgents){
+            jade.lang.acl.ACLMessage message = createRemovingMessage(agent.getName());
+            send(message);
+        }
+    }
+
+    private ACLMessage createRemovingMessage(String receiver) throws Codec.CodecException, OntologyException {
+        ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
+
+        msg.setContent(REMOVE_CYCLES);
+        msg.addReceiver(new AID(receiver, AID.ISGUID));
+        return msg;
+    }
+
+    private void startAverageCalculation() throws StaleProxyException, Codec.CodecException, OntologyException {
+        for (AgentController agent : mAgents){
+            jade.lang.acl.ACLMessage message = createStartMessage(agent.getName());
+            send(message);
+        }
+    }
+
+    private ACLMessage createStartMessage(String receiver) throws Codec.CodecException, OntologyException {
         ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
 
         msg.setContent(START);
@@ -115,88 +133,6 @@ public class GeneratorAgent extends Agent {
 
     }
 
-    private int[][] analyseMatrix(int[][] matrix){
-
-        System.out.println("ANALYSE MATRIX");
-        printMatrix(matrix);
-
-        System.out.println("AFTER REMOVING CYCLES");
-        matrix = removeCycles(matrix);
-        printMatrix(matrix);
-
-        System.out.println("AFTER ADDING NEW EDGES");
-        matrix = addNeedEdges(matrix);
-        printMatrix(matrix);
-
-        return matrix;
-    }
-
-    private void findAvailable(int[][] matrix, int vertex, ArrayList<Integer> set){
-
-        for (int i = 0; i < matrix[vertex].length; i++){
-            if (matrix[vertex][i] < 1 || set.contains(i)){
-                continue;
-            }
-
-            //it's new vertex
-            set.add(i);
-            findAvailable(matrix, i, set);
-        }
-    }
-
-    private int[][] removeCycles(int[][] matrix){
-        int vertexCount = matrix[0].length;
-//        Hashtable<Integer, ArrayList<Integer>> dictionary = new Hashtable<Integer, ArrayList<Integer>>();
-
-        for (int i = 0; i < vertexCount; i++){
-
-            ArrayList<Integer> path = new ArrayList<Integer>();
-            findAvailable(matrix, i, path);
-
-
-            if (path.contains(i)){
-                //cycle exists
-                for (int v : path){
-                    if (matrix[v][i] > 0)
-                        matrix[v][i] = 0;
-                }
-            }
-
-//            dictionary.put(i, path);
-        }
-
-        return matrix;
-    }
-
-    private int[][] addNeedEdges(int[][] matrix){
-        final int size = matrix[0].length;
-        ArrayList<Integer> ints = new ArrayList<Integer>();
-
-        for (int i = 0; i < size; i++){
-            int count = 0;
-            for (int j = 0; j < size; j++){
-                if (i == j){
-                    continue;
-                }
-                if (matrix[i][j] > 0){
-                    count++;
-                }
-            }
-
-            if (count == 0){
-                ints.add(i);
-            }
-        }
-
-        if (ints.size() > 1){
-            int leader = ints.get(0);
-            for (int id = 1; id < ints.size(); id++){
-                matrix[id][leader] = 1;
-            }
-        }
-
-        return matrix;
-    }
 
     //region read matrix from file
     private static int[][] readMatrixFromFile (String fileName){
