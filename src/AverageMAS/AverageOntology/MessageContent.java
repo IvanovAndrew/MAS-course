@@ -1,5 +1,6 @@
-package AverageMAS.Ontology;
+package AverageMAS.AverageOntology;
 
+import AverageMAS.Message;
 import jade.content.Predicate;
 
 /**

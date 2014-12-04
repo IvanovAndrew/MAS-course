@@ -1,8 +1,8 @@
 package AverageMAS;
 
-import AverageMAS.Ontology.AverageOntology;
-import AverageMAS.Ontology.Message;
-import AverageMAS.Ontology.MessageContent;
+import AverageMAS.AverageOntology.AverageOntology;
+import AverageMAS.AverageOntology.MessageContent;
+import AverageMAS.CyclesOntology.CyclesMessage;
 import jade.content.ContentManager;
 import jade.content.lang.Codec;
 import jade.content.onto.OntologyException;
@@ -25,6 +25,8 @@ import java.util.ArrayList;
 public class UsualAgent extends Agent {
     public static final String PREFIX_NAME = "agent_";
 
+    private boolean isRemovingCycles = true;
+
     private ContentManager manager = getContentManager();
     private int myNumber = Common.Random.nextInt(Common.NUMBER_UPPER_BOUND) - Common.NUMBER_RANGE;
 
@@ -41,7 +43,8 @@ public class UsualAgent extends Agent {
     private int knowsAboutMe = 0;
 
     protected void setup(){
-        Common.registerOntology(manager);
+        Common.registerAverageOntology(manager);
+        Common.registerCyclesOntology(manager);
         Object[] args = getArguments();
 
         if (args != null && args.length > 0){
@@ -56,10 +59,19 @@ public class UsualAgent extends Agent {
                 ACLMessage msg = receive(MessageTemplate.MatchPerformative(ACLMessage.INFORM));
 
                 if (msg != null){
-                    if (msg.getContent().equals(Message.START)){
-                        startAction();
+
+                    String content = msg.getContent();
+
+                    if (content.equals(Message.START)){
+                        startAverageAction();
+                    }
+                    else if (content.equals(Message.REMOVE_CYCLES)){
+                        startRemovingCycles();
                     }else{
-                        handleMessage(msg);
+                        if (isRemovingCycles)
+                            handleRemovingCycles(msg);
+                        else
+                            handleAverageMessage(msg);
                     }
                 }
                 else{
@@ -87,61 +99,57 @@ public class UsualAgent extends Agent {
         return result;
     }
 
-    private void handleMessage(ACLMessage msg){
+    private void startRemovingCycles(){
+        isRemovingCycles = true;
+
+        if (knowsAboutMe == 0){
+            
+        }
+    }
+
+    private void handleRemovingCycles(ACLMessage msg){
+        try{
+            CyclesMessage receivedMsg =(CyclesMessage) manager.extractContent(msg);
+            String content = receivedMsg.getMessage();
+
+            if (content.equals(Message.ACCEPT)){
+
+            }
+            else if (content.equals(Message.REJECT)){
+
+            }
+            else if (content.equals(Message.FINALLY_ACCEPT)){
+
+            }
+            else if (content.equals(Message.INCOMING_EDGE)){
+
+            }
+            else if (content.equals(Message.ADD_EDGE)){
+
+            }
+        } catch (UngroundedException e) {
+            e.printStackTrace();
+        } catch (Codec.CodecException e) {
+            e.printStackTrace();
+        } catch (OntologyException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void handleAverageMessage(ACLMessage msg){
         try {
             MessageContent receivedMsg =(MessageContent) manager.extractContent(msg);
             String content = receivedMsg.getMessage();
 
-            if (neighborName.isEmpty()){
-                if (content.equals(Message.NUMBER)){
-//                    System.out.println(String.format("%1$s: %2$s", mMyName, "number was received"));
+            if ()
 
-                    sum += receivedMsg.getNumber();
-                    agentCount += receivedMsg.getCount();
-
-//                    System.out.println(String.format("%1$s: summa %2$d agents: %3$d", mMyName, sum, agentCount));
-//                    System.out.println(String.format("Total messages: %1$s", Common.messagesTotal));
-                }
-                else if (content.equals(Message.STOP)){
-                    stopCount++;
-                    if (stopCount >= knowsAboutMe){
-                        sum += myNumber;
-                        agentCount++;
-
-                        jade.wrapper.AgentContainer ac = getContainerController();
-                        AgentController center = ac.getAgent(CenterAgent.CENTER_NAME);
-
-                        float average = sum / (float) agentCount;
-
-                        System.out.println(String.format("%1$s SUM: %2$d AGENTS: %3$d AVERAGE: %4$f", mMyName, sum, agentCount, average));
-                        sendNumber(sum, agentCount, center);
-                        System.out.println(String.format("TOTAL MESSAGES: %1$s", Common.messagesTotal));
-                    }
-                }
+            if (content.equals(Message.NUMBER)) {
+                handleNumberMsg(receivedMsg);
+            } else if (content.equals(Message.STOP)) {
+                handleStopMsg(receivedMsg);
             }
-            else {
-                if (content.equals(Message.NUMBER)) {
-//                    System.out.println(String.format("%1$s: %2$s", mMyName, "number was received"));
-
-                    sum += receivedMsg.getNumber();
-                    agentCount += receivedMsg.getCount();
-
-                } else if (content.equals(Message.STOP)) {
-                    stopCount++;
-//                    System.out.println(
-//                            String.format("%1$s: %2$s", mMyName, "stop was received. ") +
-//                                    String.format("%1$s: %2$d ", "stopCount is ", stopCount) +
-//                                    String.format("%1$s %2$d", "knows about me ", knowsAboutMe));
-
-                    if (knowsAboutMe <= stopCount){
-//                        System.out.println(String.format("%1$s: knows about me == stopCount. %2$s", mMyName, "I send sum and stop"));
-                        sendNumber(sum + myNumber, agentCount + 1, neighbor);
-                        sendStopToAllNeigbors();
-                    }
-                }
-                else{
-                    System.out.println(String.format("%1$s: %2$s %3$s", mMyName, content, "was received"));
-                }
+            else{
+                System.out.println(String.format("%1$s: %2$s %3$s", mMyName, content, "was received"));
             }
         }catch (UngroundedException e) {
             e.printStackTrace();
@@ -154,7 +162,35 @@ public class UsualAgent extends Agent {
         }
     }
 
-    private void startAction(){
+    private void handleNumberMsg(MessageContent msg){
+        sum += msg.getNumber();
+        agentCount += msg.getCount();
+    }
+
+    private void handleStopMsg(MessageContent msg) throws ControllerException {
+        stopCount++;
+
+        if (stopCount >= knowsAboutMe && neighborName.isEmpty()){
+            sum += myNumber;
+            agentCount++;
+
+            jade.wrapper.AgentContainer ac = getContainerController();
+            AgentController center = ac.getAgent(CenterAgent.CENTER_NAME);
+
+            float average = sum / (float) agentCount;
+
+            System.out.println(String.format("%1$s SUM: %2$d AGENTS: %3$d AVERAGE: %4$f", mMyName, sum, agentCount, average));
+            sendNumber(sum, agentCount, center);
+            System.out.println(String.format("TOTAL MESSAGES: %1$s", Common.messagesTotal));
+        }
+        else if (stopCount >= knowsAboutMe){
+            sendNumber(sum + myNumber, agentCount + 1, neighbor);
+            sendStopToAllNeigbors();
+        }
+    }
+
+    private void startAverageAction(){
+        isRemovingCycles = true;
         System.out.println(
                 String.format("%1$s: %2$s ", mMyName, "START was received.") +
                         String.format("%1$d %2$s", knowsAboutMe, "agent(s) know(s) about me. ") +
@@ -172,7 +208,6 @@ public class UsualAgent extends Agent {
 
         if (knowsAboutMe == 0){
             sendNumber(myNumber, neighbor);
-//            System.out.println(String.format("%1$s: %2$s", mMyName, "no one knows about me. I send Stop"));
             sendStopToAllNeigbors();
         }
     }
@@ -195,7 +230,6 @@ public class UsualAgent extends Agent {
 
             send(msg);
             Common.messagesTotal++;
-//            System.out.println(String.format("%1$s sent number %2$s to %3$s", mMyName, myNumber, neighborName));
         } catch (Codec.CodecException e) {
             e.printStackTrace();
         } catch (OntologyException e) {

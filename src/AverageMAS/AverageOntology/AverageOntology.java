@@ -1,4 +1,4 @@
-package AverageMAS.Ontology;
+package AverageMAS.AverageOntology;
 
 import jade.content.onto.BasicOntology;
 import jade.content.onto.Ontology;
