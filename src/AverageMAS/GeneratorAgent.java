@@ -27,12 +27,14 @@ import static AverageMAS.Message.START;
 public class GeneratorAgent extends Agent {
     private static final String filePath = "input_2.txt";//"input_1.txt";//"input_0.txt";
     private static final String separator = " ";
+    public static String Name;
 
     private ArrayList<AgentController> mAgents = new ArrayList<AgentController>();
     private AgentContainer allAgents;
     private AgentContainer allListeners;
 
     protected void setup(){
+        Name = getLocalName();
         Object[] args = getArguments();
         String fileName = (args != null && args.length > 0) ? (String) args[0] : null;
 

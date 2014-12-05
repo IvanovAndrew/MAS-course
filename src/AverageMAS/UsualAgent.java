@@ -3,6 +3,7 @@ package AverageMAS;
 import AverageMAS.AverageOntology.AverageOntology;
 import AverageMAS.AverageOntology.MessageContent;
 import AverageMAS.CyclesOntology.CyclesMessage;
+import AverageMAS.CyclesOntology.CyclesOntology;
 import jade.content.ContentManager;
 import jade.content.lang.Codec;
 import jade.content.onto.OntologyException;
@@ -12,6 +13,7 @@ import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
+import jade.wrapper.AgentContainer;
 import jade.wrapper.AgentController;
 import jade.wrapper.ControllerException;
 import jade.wrapper.StaleProxyException;
@@ -33,14 +35,20 @@ public class UsualAgent extends Agent {
     private String mMyName;
 
     private String neighborName;
-    private String[] myNeighbors;
+    private ArrayList<String> myNeighbors;
 
     private AgentController neighbor;
+
+    private ArrayList<String> knowsAboutMe = new ArrayList<String>();
+    private int finallyAccepted = 0;
+    private int rejectedMe = 0;
 
     private int sum = 0;
     private int agentCount = 0;
     private int stopCount = 0;
-    private int knowsAboutMe = 0;
+    private int initiallyKnowsAboutMe = 0;
+
+    private int incomingEdgesCount = initiallyKnowsAboutMe;
 
     protected void setup(){
         Common.registerAverageOntology(manager);
@@ -49,7 +57,7 @@ public class UsualAgent extends Agent {
 
         if (args != null && args.length > 0){
             myNeighbors = parseNeigbors((ArrayList<Integer>) args[0]);
-            knowsAboutMe = (Integer) args[1];
+            initiallyKnowsAboutMe = (Integer) args[1];
             mMyName = getLocalName();
         }
 
@@ -81,29 +89,187 @@ public class UsualAgent extends Agent {
         });
     }
 
-    private String[] parseNeigbors(ArrayList<Integer> ids) {
+    private ArrayList<String> parseNeigbors(ArrayList<Integer> ids) {
         final int size = ids.size();
 
         if (size == 0){
             neighborName = "";
-            return new String[0];
+            return new ArrayList<String>();
         }
 
-        String[] result = new String[size];
+        ArrayList<String> result = new ArrayList<String>();
         for (int id = 0; id < size; id++){
-            result[id] = PREFIX_NAME + ids.get(id);
+            result.add(PREFIX_NAME + ids.get(id));
         }
 
-        neighborName = result[Common.Random.nextInt(size)];
+        neighborName = result.get(Common.Random.nextInt(size));
 
         return result;
     }
 
-    private void startRemovingCycles(){
+    private void startRemovingCycles() {
         isRemovingCycles = true;
 
-        if (knowsAboutMe == 0){
-            
+        if (initiallyKnowsAboutMe == 0){
+            jade.wrapper.AgentContainer ac = getContainerController();
+            jade.util.leap.ArrayList path = new jade.util.leap.ArrayList();
+            path.add(mMyName);
+
+            for(String neigh : myNeighbors){
+                try {
+                    AgentController receiver = ac.getAgent(neigh);
+                    sendAccept(receiver, path, true);
+                } catch (StaleProxyException e) {
+                    e.printStackTrace();
+                } catch (Codec.CodecException e) {
+                    e.printStackTrace();
+                } catch (OntologyException e) {
+                    e.printStackTrace();
+                } catch (ControllerException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    private void sendFinallyAccept() throws ControllerException, Codec.CodecException, OntologyException {
+        jade.util.leap.ArrayList path = createPath(knowsAboutMe);
+        path.add(mMyName);
+
+        AgentContainer ac = getContainerController();
+
+        if (incomingEdgesCount > 0){
+            for (String name : myNeighbors){
+                AgentController receiver = ac.getAgent(name);
+                sendAccept(receiver, path, true);
+            }
+            incomingEdgesCount = knowsAboutMe.size();
+        }
+        else{
+            sendIAloneMsg(path);
+        }
+    }
+
+    private void sendAccept(AgentController receiver, jade.util.leap.ArrayList path, boolean isFinally) throws StaleProxyException, Codec.CodecException, OntologyException {
+        ACLMessage msg = createMessage(receiver);
+
+        msg.setLanguage(Common.Codec.getName());
+        msg.setOntology(CyclesOntology.getInstance().getName());
+
+        CyclesMessage info = new CyclesMessage();
+        if (isFinally){
+            info.setMessage(Message.FINALLY_ACCEPT);
+        }
+        else {
+            info.setMessage(Message.ACCEPT);
+        }
+
+        info.setPath(path);
+
+        manager.fillContent(msg, info);
+        send(msg);
+    }
+
+    private void sendRejectMessage(AgentController receiver) throws StaleProxyException, Codec.CodecException, OntologyException {
+        ACLMessage msg = createMessage(receiver);
+
+        msg.setLanguage(Common.Codec.getName());
+        msg.setOntology(CyclesOntology.getInstance().getName());
+
+        CyclesMessage info = new CyclesMessage();
+        info.setMessage(Message.REJECT);
+
+        manager.fillContent(msg, info);
+        send(msg);
+    }
+
+    private void sendIAloneMsg(jade.util.leap.ArrayList path) throws ControllerException, Codec.CodecException, OntologyException {
+        AgentContainer ac = getContainerController();
+        AgentController receiver = ac.getAgent(GeneratorAgent.Name);
+        ACLMessage msg = createMessage(receiver);
+
+        msg.setLanguage(Common.Codec.getName());
+        msg.setOntology(CyclesOntology.getInstance().getName());
+
+        CyclesMessage info = new CyclesMessage();
+        info.setMessage(Message.I_AM_ALONE);
+
+        info.setPath(path);
+
+        manager.fillContent(msg, info);
+        send(msg);
+    }
+
+    private void handleRejectMsg(String name) throws OntologyException, Codec.CodecException, ControllerException {
+        rejectedMe += 1;
+
+        knowsAboutMe.remove(name);
+
+        if (finallyAccepted + rejectedMe >= initiallyKnowsAboutMe){
+            sendFinallyAccept();
+        }
+
+    }
+
+    private jade.util.leap.ArrayList createPath(ArrayList<String> list){
+        jade.util.leap.ArrayList result = new jade.util.leap.ArrayList();
+
+        for (String name : list){
+            result.add(name);
+        }
+        return result;
+    }
+
+    private void handleFinallyAcceptMsg(CyclesMessage msg) throws OntologyException, Codec.CodecException, ControllerException {
+        finallyAccepted += 1;
+
+        jade.util.leap.ArrayList path = msg.getPath();
+        updateIncomingEdges(path);
+
+        if (finallyAccepted + rejectedMe >= initiallyKnowsAboutMe){
+            sendFinallyAccept();
+        }
+    }
+
+    private void updateIncomingEdges(jade.util.leap.ArrayList path){
+        int length = path.size();
+
+        for (int i = 0; i < length; i++){
+            String name = (String)path.get(i);
+            if (!knowsAboutMe.contains(name)){
+                knowsAboutMe.add(name);
+            }
+        }
+    }
+
+    private void handleIncomingEdge(CyclesMessage msg){
+        String name = msg.getName();
+        myNeighbors.add(name);
+    }
+
+    private void handleAddEdgeMsg(CyclesMessage msg){
+        incomingEdgesCount += 1;
+    }
+
+    private void handleAcceptMsg(CyclesMessage msg) throws ControllerException, Codec.CodecException, OntologyException {
+        jade.util.leap.ArrayList path = msg.getPath();
+
+        updateIncomingEdges(path);
+
+        AgentContainer ac = getContainerController();
+
+        for (String name : myNeighbors){
+            AgentController receiver = ac.getAgent(name);
+
+            if (knowsAboutMe.contains(name)){
+                sendRejectMessage(receiver);
+                myNeighbors.remove(name);
+            }
+            else{
+                jade.util.leap.ArrayList newPath = createPath(knowsAboutMe);
+                newPath.add(mMyName);
+                sendAccept(receiver, path, false);
+            }
         }
     }
 
@@ -113,19 +279,20 @@ public class UsualAgent extends Agent {
             String content = receivedMsg.getMessage();
 
             if (content.equals(Message.ACCEPT)){
-
+                handleAcceptMsg(receivedMsg);
             }
             else if (content.equals(Message.REJECT)){
-
+                String name = msg.getSender().getLocalName();
+                handleRejectMsg(name);
             }
             else if (content.equals(Message.FINALLY_ACCEPT)){
-
+                handleFinallyAcceptMsg(receivedMsg);
             }
             else if (content.equals(Message.INCOMING_EDGE)){
-
+                handleIncomingEdge(receivedMsg);
             }
             else if (content.equals(Message.ADD_EDGE)){
-
+                handleAddEdgeMsg(receivedMsg);
             }
         } catch (UngroundedException e) {
             e.printStackTrace();
@@ -133,15 +300,16 @@ public class UsualAgent extends Agent {
             e.printStackTrace();
         } catch (OntologyException e) {
             e.printStackTrace();
+        } catch (ControllerException e) {
+            e.printStackTrace();
         }
     }
 
+    //region Average calculation
     private void handleAverageMessage(ACLMessage msg){
         try {
             MessageContent receivedMsg =(MessageContent) manager.extractContent(msg);
             String content = receivedMsg.getMessage();
-
-            if ()
 
             if (content.equals(Message.NUMBER)) {
                 handleNumberMsg(receivedMsg);
@@ -170,7 +338,7 @@ public class UsualAgent extends Agent {
     private void handleStopMsg(MessageContent msg) throws ControllerException {
         stopCount++;
 
-        if (stopCount >= knowsAboutMe && neighborName.isEmpty()){
+        if (stopCount >= initiallyKnowsAboutMe && neighborName.isEmpty()){
             sum += myNumber;
             agentCount++;
 
@@ -183,7 +351,7 @@ public class UsualAgent extends Agent {
             sendNumber(sum, agentCount, center);
             System.out.println(String.format("TOTAL MESSAGES: %1$s", Common.messagesTotal));
         }
-        else if (stopCount >= knowsAboutMe){
+        else if (stopCount >= initiallyKnowsAboutMe){
             sendNumber(sum + myNumber, agentCount + 1, neighbor);
             sendStopToAllNeigbors();
         }
@@ -193,7 +361,7 @@ public class UsualAgent extends Agent {
         isRemovingCycles = true;
         System.out.println(
                 String.format("%1$s: %2$s ", mMyName, "START was received.") +
-                        String.format("%1$d %2$s", knowsAboutMe, "agent(s) know(s) about me. ") +
+                        String.format("%1$d %2$s", initiallyKnowsAboutMe, "agent(s) know(s) about me. ") +
                         String.format("MY NUMBER: %1$d", myNumber));
         if (neighborName.isEmpty()){
             return;
@@ -206,7 +374,7 @@ public class UsualAgent extends Agent {
             e.printStackTrace();
         }
 
-        if (knowsAboutMe == 0){
+        if (initiallyKnowsAboutMe == 0){
             sendNumber(myNumber, neighbor);
             sendStopToAllNeigbors();
         }
@@ -262,9 +430,8 @@ public class UsualAgent extends Agent {
     private void sendStopToAllNeigbors(){
 
         try {
+            jade.wrapper.AgentContainer ac = getContainerController();
             for (String name : myNeighbors){
-                jade.wrapper.AgentContainer ac = getContainerController();
-
                 AgentController receiver = ac.getAgent(name);
                 sendStopToNeighbor(receiver);
             }
@@ -272,6 +439,7 @@ public class UsualAgent extends Agent {
             e.printStackTrace();
         }
     }
+    //endregion
 
     private ACLMessage createMessage(AgentController receiver) throws Codec.CodecException, OntologyException, StaleProxyException {
         ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
