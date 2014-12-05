@@ -10,9 +10,11 @@ public class CyclesMessage implements Predicate {
     public static final String CYCLES_MESSAGE = "CyclesMessage";
     public static final String PATH = "path";
     public static final String MESSAGE = "message";
+    public static final String NAME = "name";
 
     private ArrayList path = new ArrayList();
     private String message = "";
+    private String name = "";
 
     public CyclesMessage(){}
 
@@ -34,5 +36,13 @@ public class CyclesMessage implements Predicate {
 
     public void setMessage(String msg){
         message = msg;
+    }
+
+    public String getName(){
+        return name;
+    }
+
+    public void setName(String newName){
+        name = newName;
     }
 }
