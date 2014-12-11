@@ -6,7 +6,9 @@ import jade.core.AID;
 import jade.core.Agent;
 import jade.core.ProfileImpl;
 import jade.core.Runtime;
+import jade.core.behaviours.CyclicBehaviour;
 import jade.lang.acl.ACLMessage;
+import jade.lang.acl.MessageTemplate;
 import jade.wrapper.AgentContainer;
 import jade.wrapper.AgentController;
 import jade.wrapper.StaleProxyException;
@@ -69,11 +71,12 @@ public class GeneratorAgent extends Agent {
                 mAgents.add(newAgent);
                 newAgent.start();
 
-                startRemovingCycles();
+
             }
 
             AgentController centerAgent = createCenterAgent();
             centerAgent.start();
+            startRemovingCycles();
         }catch (StaleProxyException e) {
             e.printStackTrace();
         } catch (Codec.CodecException e) {
@@ -81,6 +84,32 @@ public class GeneratorAgent extends Agent {
         } catch (OntologyException e) {
             e.printStackTrace();
         }
+
+        addBehaviour(new CyclicBehaviour(this){
+            public void action (){
+
+                ACLMessage msg = receive(MessageTemplate.MatchPerformative(ACLMessage.INFORM));
+
+                if (msg != null){
+
+                    String content = msg.getContent();
+
+                    if (content.equals(Message.START)){
+                    }
+                    else if (content.equals(Message.REMOVE_CYCLES)){
+                        startRemovingCycles();
+                    }else{
+                        if (isRemovingCycles)
+                            handleRemovingCycles(msg);
+                        else
+                            handleAverageMessage(msg);
+                    }
+                }
+                else{
+                    block();
+                }
+            }
+        });
     }
 
     private void startRemovingCycles() throws StaleProxyException, Codec.CodecException, OntologyException {
