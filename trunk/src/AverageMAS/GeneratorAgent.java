@@ -1,5 +1,6 @@
 package AverageMAS;
 
+import jade.content.ContentManager;
 import jade.content.lang.Codec;
 import jade.content.onto.OntologyException;
 import jade.core.AID;
@@ -20,33 +21,33 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.StringTokenizer;
 
-import static AverageMAS.Message.REMOVE_CYCLES;
-import static AverageMAS.Message.START;
-
 /**
  * Created by User on 10/16/14.
  */
 public class GeneratorAgent extends Agent {
-    private static final String filePath = "input_2.txt";//"input_1.txt";//"input_0.txt";
+    private static final String filePath = "input_cycles.txt";//"input_2.txt";//"input_1.txt";//"input_0.txt";
     private static final String separator = " ";
-    public static String Name;
 
     private ArrayList<AgentController> mAgents = new ArrayList<AgentController>();
-    private AgentContainer allAgents;
-    private AgentContainer allListeners;
+
+    private AgentContainer container;
+    private ContentManager manager = getContentManager();
 
     protected void setup(){
-        Name = getLocalName();
+        Common.registerAverageOntology(manager);
+        Common.registerCyclesOntology(manager);
+
         Object[] args = getArguments();
         String fileName = (args != null && args.length > 0) ? (String) args[0] : null;
 
-        int[][] matrix = readMatrixFromFile(fileName);
+        final int[][] matrix = readMatrixFromFile(fileName);
         if (matrix == null)
             return;
+        checkMatrix(matrix);
 
         jade.core.Runtime rt = Runtime.instance();
         ProfileImpl p = new ProfileImpl(false);
-        allListeners = rt.createAgentContainer(p);
+        container = rt.createAgentContainer(p);
 
         try {
             for (int agent = 0; agent < matrix.length; agent++){
@@ -71,99 +72,77 @@ public class GeneratorAgent extends Agent {
                 mAgents.add(newAgent);
                 newAgent.start();
 
-
             }
-
             AgentController centerAgent = createCenterAgent();
             centerAgent.start();
-            startRemovingCycles();
+
+            AgentController cyclesAgent = createCyclesAgent(mAgents.size());
+            cyclesAgent.start();
+
+            removeCycles(cyclesAgent);
+
+            addBehaviour(new CyclicBehaviour(this){
+                public void action (){
+                    ACLMessage msg = receive(MessageTemplate.MatchPerformative(ACLMessage.INFORM));
+
+                    if (msg != null){
+                        String content = msg.getContent();
+
+                        if (content.equals(Message.CYCLES_IS_REMOVED)){
+                            try {
+                                startAverageCalculation();
+                            } catch (StaleProxyException e) {
+                                e.printStackTrace();
+                            } catch (Codec.CodecException e) {
+                                e.printStackTrace();
+                            } catch (OntologyException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    }
+                }
+            });
+
         }catch (StaleProxyException e) {
             e.printStackTrace();
-        } catch (Codec.CodecException e) {
-            e.printStackTrace();
-        } catch (OntologyException e) {
-            e.printStackTrace();
-        }
-
-        addBehaviour(new CyclicBehaviour(this){
-            public void action (){
-
-                ACLMessage msg = receive(MessageTemplate.MatchPerformative(ACLMessage.INFORM));
-
-                if (msg != null){
-
-                    String content = msg.getContent();
-
-                    if (content.equals(Message.START)){
-                    }
-                    else if (content.equals(Message.REMOVE_CYCLES)){
-                        startRemovingCycles();
-                    }else{
-                        if (isRemovingCycles)
-                            handleRemovingCycles(msg);
-                        else
-                            handleAverageMessage(msg);
-                    }
-                }
-                else{
-                    block();
-                }
-            }
-        });
-    }
-
-    private void startRemovingCycles() throws StaleProxyException, Codec.CodecException, OntologyException {
-        for (AgentController agent : mAgents){
-            jade.lang.acl.ACLMessage message = createRemovingMessage(agent.getName());
-            send(message);
         }
     }
 
-    private ACLMessage createRemovingMessage(String receiver) throws Codec.CodecException, OntologyException {
+    private void removeCycles(AgentController agent) throws StaleProxyException {
         ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
 
-        msg.setContent(REMOVE_CYCLES);
-        msg.addReceiver(new AID(receiver, AID.ISGUID));
-        return msg;
+        msg.setContent(Message.REMOVE_CYCLES);
+        msg.addReceiver(new AID(agent.getName(), AID.ISGUID));
+        send(msg);
     }
 
     private void startAverageCalculation() throws StaleProxyException, Codec.CodecException, OntologyException {
+//        System.out.println("I start average calculation");
+        ACLMessage message = new ACLMessage(ACLMessage.INFORM);
+        message.setContent(Message.START_CALCULATION);
+
         for (AgentController agent : mAgents){
-            jade.lang.acl.ACLMessage message = createStartMessage(agent.getName());
-            send(message);
+            message.addReceiver(new AID(agent.getName(), AID.ISGUID));
         }
+        send(message);
     }
 
-    private ACLMessage createStartMessage(String receiver) throws Codec.CodecException, OntologyException {
-        ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-
-        msg.setContent(START);
-        msg.addReceiver(new AID(receiver, AID.ISGUID));
-        return msg;
-    }
-
+    //region agents creating
     private AgentController createUsualAgent(int id, ArrayList<Integer> neighborsIds, int knowsAbout) throws StaleProxyException {
         String agentName = UsualAgent.PREFIX_NAME + id;
         Object[] array = {neighborsIds, knowsAbout};
-        return allListeners.createNewAgent(agentName, "AverageMAS.UsualAgent", array);
+        return container.createNewAgent(agentName, "AverageMAS.UsualAgent", array);
     }
 
     private AgentController createCenterAgent() throws StaleProxyException {
-        return allListeners.createNewAgent(CenterAgent.CENTER_NAME, "AverageMAS.CenterAgent", null);
+        return container.createNewAgent(CenterAgent.CENTER_NAME, "AverageMAS.CenterAgent", null);
     }
 
-    private void printMatrix(int[][] matrix){
-        int vertexCount = matrix[0].length;
-
-        for (int i = 0; i < vertexCount; i++){
-            for (int j = 0; j < vertexCount; j++){
-                System.out.print(matrix[i][j] + " ");
-            }
-            System.out.println();
-        }
-
+    private AgentController createCyclesAgent(int agentsCount) throws StaleProxyException {
+        Object[] array = {agentsCount};
+        return container.createNewAgent(RemCyclesAgent.NAME, "AverageMAS.RemCyclesAgent", array);
     }
-
+    //endregion
 
     //region read matrix from file
     private static int[][] readMatrixFromFile (String fileName){
@@ -205,6 +184,49 @@ public class GeneratorAgent extends Agent {
         } catch (IOException e) {
             e.printStackTrace();
             return null;
+        }
+    }
+    //endregion
+
+    //region matrix manipulations
+    private void printMatrix(int[][] matrix){
+        int vertexCount = matrix[0].length;
+
+        for (int i = 0; i < vertexCount; i++){
+            for (int j = 0; j < vertexCount; j++){
+                System.out.print(matrix[i][j] + " ");
+            }
+            System.out.println();
+        }
+    }
+
+    private void checkMatrix(int[][] matrix){
+        int size = (matrix[0]).length;
+
+        int minSum = size;
+        int minIndex = -1;
+        // need agent with 0 in arcs
+        for (int i = 0; i < size; i++){
+            int sum = 0;
+            for (int j = 0; j < size; j++){
+                if (i == j)
+                    continue;
+                if (matrix[j][i] > 0)
+                    sum += 1;
+            }
+            if (sum == 0)
+                return;
+
+            if (sum < minSum){
+                minSum = sum;
+                minIndex = i;
+            }
+        }
+
+        for (int j = 0; j < size; j++){
+            if (j == minIndex)
+                continue;
+            matrix[j][minIndex] = 0;
         }
     }
     //endregion

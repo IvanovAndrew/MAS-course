@@ -30,7 +30,7 @@ public class CyclesOntology extends Ontology {
             PredicateSchema schema = new PredicateSchema(CyclesMessage.CYCLES_MESSAGE);
             schema.add(CyclesMessage.PATH, list, ObjectSchema.MANDATORY);
             schema.add(CyclesMessage.MESSAGE, stringSchema, ObjectSchema.MANDATORY);
-
+            schema.add(CyclesMessage.NAME, stringSchema, ObjectSchema.MANDATORY);
 
             add(schema, CyclesMessage.class);
         } catch (OntologyException e) {
