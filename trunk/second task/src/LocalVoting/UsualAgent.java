@@ -23,8 +23,6 @@ public class UsualAgent extends Agent {
     private ArrayList<String> myNeighbors = new ArrayList<String>();
 
     private float myNumber = Constants.RANDOM.nextInt(Constants.NUMBER_UPPER) - Constants.NUMBER_RANGE;
-    private float b = 1;
-    private float alpha = (float) 0.5;
 
     private int receivedMsg = 0;
     private float totalDelta = 0;
@@ -49,13 +47,14 @@ public class UsualAgent extends Agent {
 
                 if (msg != null){
                     String content = msg.getContent();
+                    String senderName = msg.getSender().getLocalName();
 
                     if (content.equals(Message.GO)){
                         sendNumberToAll();
                     }
                     else{
                         try {
-                            updateTasks((MessageContent) manager.extractContent(msg));
+                            updateTasks((MessageContent) manager.extractContent(msg), senderName);
                         } catch (Codec.CodecException e) {
                             e.printStackTrace();
                         } catch (OntologyException e) {
@@ -89,10 +88,15 @@ public class UsualAgent extends Agent {
         }
     }
 
-    private void updateTasks(MessageContent msg){
-        float number = msg.getNumber();
+    private void updateTasks(MessageContent msg, String sender){
 
-        totalDelta += alpha * b * (number - myNumber);
+        float b = Input.getKoeff(getLocalName(), sender);
+        boolean isReceived = Constants.RANDOM.nextFloat() < b;
+
+        if (isReceived){
+            float number = msg.getNumber();
+            totalDelta += Input.ALPHA * b * (number - myNumber);
+        }
         receivedMsg++;
 
         if (receivedMsg >= degree){
@@ -102,8 +106,11 @@ public class UsualAgent extends Agent {
             ticks++;
             if (ticks < Constants.MAX_TICKS){
                 sendNumberToAll();
-                System.out.println(String.format("%1$s number %2$f", getLocalName(), myNumber));
+                //System.out.println(String.format("%1$s number %2$f", getLocalName(), myNumber));
+            }else {
+                System.out.println(String.format("TOTAL: %1$s number %2$f", getLocalName(), myNumber));
             }
+
         }
     }
 

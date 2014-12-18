@@ -16,33 +16,23 @@ import java.util.ArrayList;
  */
 public class EnviromentAgent extends Agent {
 
-    private final int agentsCount = 5;
-    private final int[][] matrix = new int[][]{
-        {0, 1, 0, 0, 1,},
-        {1, 0, 1, 0, 0,},
-        {0, 1, 0, 1, 0,},
-        {0, 0, 1, 0, 1,},
-        {1, 0, 0, 1, 0,},
-    };
-
     private AgentContainer container;
     private ArrayList<String> agents = new ArrayList<String>();
 
     protected void setup(){
-        System.out.println("Generator starts");
 
         jade.core.Runtime rt = jade.core.Runtime.instance();
         ProfileImpl p = new ProfileImpl(false);
         container = rt.createAgentContainer(p);
 
-        for (int agentId = 0; agentId < agentsCount; agentId++){
+        for (int agentId = 0; agentId < Input.AGENTS_COUNT; agentId++){
             ArrayList<Integer> neighbors = new ArrayList<Integer>();
 
-            for (int other = 0; other < agentsCount; other++){
+            for (int other = 0; other < Input.AGENTS_COUNT; other++){
                 if (other == agentId)
                     continue;
 
-                if (matrix[agentId][other] > 0){
+                if (Input.MATRIX[agentId][other] > 0){
                     neighbors.add(other);
                 }
             }
@@ -68,6 +58,5 @@ public class EnviromentAgent extends Agent {
             }
         }
         send(msg);
-        System.out.println("Generator finishes");
     }
 }
