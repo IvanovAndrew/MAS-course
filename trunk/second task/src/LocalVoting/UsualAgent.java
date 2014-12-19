@@ -29,6 +29,8 @@ public class UsualAgent extends Agent {
     private int degree;
     private int ticks = 0;
 
+    private ArrayList<Float> lastNumbers = new ArrayList<Float>();
+
     protected void setup() {
         manager.registerLanguage(Constants.CODEC);
         manager.registerOntology(MyOntology.getInstance());
@@ -50,6 +52,7 @@ public class UsualAgent extends Agent {
                     String senderName = msg.getSender().getLocalName();
 
                     if (content.equals(Message.GO)){
+                        lastNumbers.add(myNumber);
                         sendNumberToAll();
                     }
                     else{
@@ -104,6 +107,7 @@ public class UsualAgent extends Agent {
             totalDelta = 0;
             receivedMsg = 0;
             ticks++;
+            saveNumber(myNumber);
             if (ticks < Constants.MAX_TICKS){
                 sendNumberToAll();
             }else {
@@ -125,7 +129,15 @@ public class UsualAgent extends Agent {
             e.printStackTrace();
         }
 
-        float num = addNoise(myNumber);
+        float number = myNumber;
+
+        if (Constants.RANDOM.nextFloat() > Input.getDelayProbability(getLocalName(), name)){
+//            System.out.println(String.format("%1$s DELAY %2$s", ++delays, getLocalName()));
+            int index = Constants.RANDOM.nextInt(lastNumbers.size());
+            number = lastNumbers.get(index);
+        }
+
+        float num = addNoise(number);
         MessageContent content = new MessageContent();
         content.setNumber(num);
 
@@ -143,5 +155,14 @@ public class UsualAgent extends Agent {
     private float addNoise(float num){
         num += Constants.RANDOM.nextFloat() - 0.5f;
         return num;
+    }
+
+    private void saveNumber(float num){
+        if (lastNumbers.size() >= Constants.MAX_DELAY){
+            lastNumbers.add(num);
+            lastNumbers.remove(0);
+        }else {
+            lastNumbers.add(num);
+        }
     }
 }
