@@ -90,12 +90,12 @@ public class UsualAgent extends Agent {
 
     private void updateTasks(MessageContent msg, String sender){
 
-        float b = Input.getKoeff(getLocalName(), sender);
-        boolean isReceived = Constants.RANDOM.nextFloat() < b;
+        float b = Input.getProbability(getLocalName(), sender);
+        boolean isReceived = Constants.RANDOM.nextFloat() <= b;
 
         if (isReceived){
             float number = msg.getNumber();
-            totalDelta += Input.ALPHA * b * (number - myNumber);
+            totalDelta += Input.ALPHA * (number - myNumber);
         }
         receivedMsg++;
 
@@ -106,7 +106,6 @@ public class UsualAgent extends Agent {
             ticks++;
             if (ticks < Constants.MAX_TICKS){
                 sendNumberToAll();
-                //System.out.println(String.format("%1$s number %2$f", getLocalName(), myNumber));
             }else {
                 System.out.println(String.format("TOTAL: %1$s number %2$f", getLocalName(), myNumber));
             }
@@ -142,7 +141,7 @@ public class UsualAgent extends Agent {
     }
 
     private float addNoise(float num){
-        num += Constants.RANDOM.nextFloat() - (float)0.5;
+        num += Constants.RANDOM.nextFloat() - 0.5f;
         return num;
     }
 }
