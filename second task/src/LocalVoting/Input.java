@@ -14,6 +14,14 @@ public class  Input{
                                                       {1, 0, 0, 1, 0,},
     };
 
+    public static final float[][] DELAY_MATRIX = new float[][]{
+            {0, 1, 0, 0, 1},
+            {1, 0, 1, 0, 0},
+            {0, 1, 0, 1, 0},
+            {0, 0, 1, 0, 1},
+            {0.8f, 0, 0, 0.8f, 0},
+    };
+
     public static final int AGENTS_COUNT = MATRIX[0].length;
     public static float ALPHA = 0.1f;
 
@@ -30,5 +38,12 @@ public class  Input{
         int column = getId(columnName);
 
         return MATRIX[row][column];
+    }
+
+    public static float getDelayProbability(String rowName, String columnName){
+        int row = getId(rowName);
+        int column = getId(columnName);
+
+        return DELAY_MATRIX[row][column];
     }
 }
